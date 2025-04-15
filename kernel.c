@@ -19,6 +19,8 @@ extern char __bss[], __bss_end[], __stack_top[];
 
 extern char __free_ram[], __free_ram_end[];
 
+extern char _binary_shell_bin_start[], _binary_shell_bin_size[], _binary_shell_bin_end[];
+
 struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                        long arg5, long fid, long eid) {
   register long a0 __asm__("a0") = arg0;
@@ -173,31 +175,68 @@ paddr_t alloc_pages(uint64_t n) {
     return paddr;
   }
 
-void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags) {
-    if (!is_aligned(vaddr, PAGE_SIZE))
-        PANIC("unaligned vaddr %x", vaddr);
+// void map_page(uint64_t *table1, uint64_t vaddr, paddr_t paddr, uint64_t flags) {
+//     if (!is_aligned(vaddr, PAGE_SIZE))
+//         PANIC("unaligned vaddr %x", vaddr);
 
-    if (!is_aligned(paddr, PAGE_SIZE))
-        PANIC("unaligned paddr %x", paddr);
+//     if (!is_aligned(paddr, PAGE_SIZE))
+//         PANIC("unaligned paddr %x", paddr);
 
-    uint32_t vpn1 = (vaddr >> 22) & 0x3ff;
-    if ((table1[vpn1] & PAGE_V) == 0) {
-        // Create the non-existent 2nd level page table.
-        uint32_t pt_paddr = alloc_pages(1);
-        table1[vpn1] = ((pt_paddr / PAGE_SIZE) << 10) | PAGE_V;
-    }
+//     uint64_t vpn1 = (vaddr >> 22) & 0x3ff;
+//     if ((table1[vpn1] & PAGE_V) == 0) {
+//         // Create the non-existent 2nd level page table.
+//         uint64_t pt_paddr = alloc_pages(1);
+//         table1[vpn1] = ((pt_paddr / PAGE_SIZE) << 10) | PAGE_V;
+//     }
 
-    // Set the 2nd level page table entry to map the physical page.
-    uint32_t vpn0 = (vaddr >> 12) & 0x3ff;
-    uint32_t *table0 = (uint32_t *) ((table1[vpn1] >> 10) * PAGE_SIZE);
-    table0[vpn0] = ((paddr / PAGE_SIZE) << 10) | flags | PAGE_V;
+//     // Set the 2nd level page table entry to map the physical page.
+//     uint64_t vpn0 = (vaddr >> 12) & 0x3ff;
+//     uint64_t *table0 = (uint64_t *) ((table1[vpn1] >> 10) * PAGE_SIZE);
+//     table0[vpn0] = ((paddr / PAGE_SIZE) << 10) | flags | PAGE_V;
+// }
+
+void map_page(uint64_t *root_table, uint64_t vaddr, paddr_t paddr, uint64_t flags) {
+  uint64_t vpn2 = (vaddr >> 30) & 0x1FF;
+  uint64_t vpn1 = (vaddr >> 21) & 0x1FF;
+  uint64_t vpn0 = (vaddr >> 12) & 0x1FF;
+
+  // Level 2
+  if ((root_table[vpn2] & PAGE_V) == 0) {
+      paddr_t pt1 = alloc_pages(1);
+      root_table[vpn2] = ((pt1 >> 12) << 10) | PAGE_V;
+  }
+  uint64_t *table1 = (uint64_t *) ((root_table[vpn2] >> 10) << 12);
+
+  // Level 1
+  if ((table1[vpn1] & PAGE_V) == 0) {
+      paddr_t pt0 = alloc_pages(1);
+      table1[vpn1] = ((pt0 >> 12) << 10) | PAGE_V;
+  }
+  uint64_t *table0 = (uint64_t *) ((table1[vpn1] >> 10) << 12);
+
+  // Level 0 (leaf)
+  table0[vpn0] = ((paddr >> 12) << 10) | flags | PAGE_V;
 }
+
+
 
 struct process procs[PROCS_MAX]; // All process control structures.
 
 extern char __kernel_base[];
 
-struct process *create_process(uint64_t pc) {
+// ↓ __attribute__((naked)) is very important!
+__attribute__((naked)) void user_entry(void) {
+  __asm__ __volatile__(
+      "csrw sepc, %[sepc]        \n"
+      "csrw sstatus, %[sstatus]  \n"
+      "sret                      \n"
+      :
+      : [sepc] "r" (USER_BASE),
+        [sstatus] "r" (SSTATUS_SPIE)
+  );
+}
+
+struct process *create_process(const void *image, size_t image_size) {
     // Find an unused process control structure.
     struct process *proc = NULL;
     int i;
@@ -226,12 +265,29 @@ struct process *create_process(uint64_t pc) {
     *--sp = 0;                      // s2
     *--sp = 0;                      // s1
     *--sp = 0;                      // s0
-    *--sp = (uint64_t) pc;          // ra
+    // *--sp = (uint64_t) pc;          // ra
+    *--sp = (uint64_t) user_entry;  // ra (changed!)
 
-    uint32_t *page_table = (uint32_t *) alloc_pages(1);
+    uint64_t *page_table = (uint64_t *) alloc_pages(1);
+
     for (paddr_t paddr = (paddr_t) __kernel_base;
          paddr < (paddr_t) __free_ram_end; paddr += PAGE_SIZE)
         map_page(page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
+
+    // Map user pages.
+    for (uint64_t off = 0; off < image_size; off += PAGE_SIZE) {
+      paddr_t page = alloc_pages(1);
+
+      // Handle the case where the data to be copied is smaller than the
+      // page size.
+      size_t remaining = image_size - off;
+      size_t copy_size = PAGE_SIZE <= remaining ? PAGE_SIZE : remaining;
+
+      // Fill and map the page.
+      memcpy((void *) page, image + off, copy_size);
+      map_page(page_table, USER_BASE + off, page,
+              PAGE_U | PAGE_R | PAGE_W | PAGE_X);
+    }
 
     // Initialize fields.
     proc->pid = i + 1;
@@ -265,8 +321,8 @@ void yield(void) {
         "sfence.vma\n"
         "csrw sscratch, %[sscratch]\n"
         :
-        : [satp] "r" (SATP_SV32 | ((uint32_t) next->page_table / PAGE_SIZE)), 
-        [sscratch] "r" ((uint32_t) &next->stack[sizeof(next->stack)])
+        : [satp] "r" (SATP_SV39 | ((uint64_t) next->page_table / PAGE_SIZE)), 
+        [sscratch] "r" ((uint64_t) &next->stack[sizeof(next->stack)])
     );
 
     // Context switch
@@ -301,14 +357,36 @@ void proc_b_entry(void) {
     }
 }
 
+
+void handle_syscall(struct trap_frame *f) {
+  switch (f->a3) {
+      case SYS_PUTCHAR:
+          putchar(f->a0);
+          break;
+      default:
+          PANIC("unexpected syscall a3=%x\n", f->a3);
+  }
+}
+
+
 void handle_trap(struct trap_frame *f) {
   uint64_t scause = READ_CSR(scause);
   uint64_t stval = READ_CSR(stval);
   uint64_t user_pc = READ_CSR(sepc);
 
-  PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval,
-        user_pc);
+  if (scause == SCAUSE_ECALL) {
+      handle_syscall(f);
+      user_pc += 4;
+  } else {
+      PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+  }
+
+  WRITE_CSR(sepc, user_pc);
+
 }
+
+
+
 
 void kernel_main(void) {
   memset(__bss, 0, (size_t)__bss_end - (size_t)__bss);
@@ -328,12 +406,16 @@ void kernel_main(void) {
 //   PANIC("booted!");
 //   printf("unreachable here!\n");
 
-    idle_proc = create_process((uint32_t) NULL);
+    // idle_proc = create_process((uint64_t) NULL);
+    idle_proc = create_process(NULL, 0); // updated!
     idle_proc->pid = 0; // idle
     current_proc = idle_proc;
 
-    proc_a = create_process((uint32_t) proc_a_entry);
-    proc_b = create_process((uint32_t) proc_b_entry);
+    // proc_a = create_process((uint64_t) proc_a_entry);
+    // proc_b = create_process((uint64_t) proc_b_entry);
+
+   // new!
+   create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
 
     yield();
     PANIC("switched to idle process");

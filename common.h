@@ -19,6 +19,8 @@ typedef uint64_t vaddr_t;
 #define va_end   __builtin_va_end
 #define va_arg   __builtin_va_arg
 
+#define SYS_PUTCHAR 1
+
 #define PAGE_SIZE 4096
 
 void *memset(void *buf, char c, size_t n);

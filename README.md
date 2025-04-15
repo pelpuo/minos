@@ -21,4 +21,4 @@ This reads and writes the cycle register into x0. Since cycle is a read-only reg
 
 
 ## Current Status 
-[Reached Here](https://operating-system-in-1000-lines.vercel.app/en/11-page-table)
+[Reached Here](https://operating-system-in-1000-lines.vercel.app/en/14-system-call)
