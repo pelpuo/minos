@@ -259,7 +259,7 @@ struct process *create_process(const void *image, size_t image_size) {
             break;
         }
     }
-
+    
     if (!proc)
         PANIC("no free process slots");
 
