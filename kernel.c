@@ -16,10 +16,13 @@
   } while (0)
 
 extern char __bss[], __bss_end[], __stack_top[];
-
 extern char __free_ram[], __free_ram_end[];
-
 extern char _binary_shell_bin_start[], _binary_shell_bin_size[], _binary_shell_bin_end[];
+extern char __kernel_base[];
+
+struct process procs[PROCS_MAX]; // All process control structures.
+struct process *current_proc; // Currently running process
+struct process *idle_proc;    // Idle process
 
 struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                        long arg5, long fid, long eid) {
@@ -44,8 +47,14 @@ void putchar(char ch) {
   sbi_call(ch, 0, 0, 0, 0, 0, 0, 1 /* Console Putchar */);
 }
 
+long getchar(void) {
+  struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
+  return ret.error;
+}
+
 __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
-  __asm__ __volatile__("csrw sscratch, sp\n"
+  __asm__ __volatile__(
+                        "csrw sscratch, sp\n"
                         "addi sp, sp, -8 * 31\n"
                         "sd ra,  8 * 0(sp)\n"
                         "sd gp,  8 * 1(sp)\n"
@@ -200,6 +209,12 @@ void map_page(uint64_t *root_table, uint64_t vaddr, paddr_t paddr, uint64_t flag
   uint64_t vpn1 = (vaddr >> 21) & 0x1FF;
   uint64_t vpn0 = (vaddr >> 12) & 0x1FF;
 
+  if (!is_aligned(vaddr, PAGE_SIZE))
+      PANIC("unaligned vaddr %x", vaddr);
+
+  if (!is_aligned(paddr, PAGE_SIZE))
+      PANIC("unaligned paddr %x", paddr);
+
   // Level 2
   if ((root_table[vpn2] & PAGE_V) == 0) {
       paddr_t pt1 = alloc_pages(1);
@@ -220,9 +235,7 @@ void map_page(uint64_t *root_table, uint64_t vaddr, paddr_t paddr, uint64_t flag
 
 
 
-struct process procs[PROCS_MAX]; // All process control structures.
 
-extern char __kernel_base[];
 
 // ↓ __attribute__((naked)) is very important!
 __attribute__((naked)) void user_entry(void) {
@@ -297,9 +310,6 @@ struct process *create_process(const void *image, size_t image_size) {
     return proc;
 }
 
-struct process *current_proc; // Currently running process
-struct process *idle_proc;    // Idle process
-
 void yield(void) {
     // Search for a runnable process
     struct process *next = idle_proc;
@@ -329,6 +339,7 @@ void yield(void) {
     struct process *prev = current_proc;
     current_proc = next;
     switch_context(&prev->sp, &next->sp);
+
 }
 
 void delay(void) {
@@ -361,10 +372,20 @@ void proc_b_entry(void) {
 void handle_syscall(struct trap_frame *f) {
   switch (f->a3) {
       case SYS_PUTCHAR:
-          putchar(f->a0);
-          break;
+        putchar(f->a0);
+        break;
+      // case SYS_GETCHAR:
+      //   while (1) {
+      //     long ch = getchar();
+      //     if (ch >= 0) {
+      //       f->a0 = ch;
+      //       break;
+      //     }
+      //     yield();
+      //   }
+      // break;
       default:
-          PANIC("unexpected syscall a3=%x\n", f->a3);
+        PANIC("unexpected syscall a3=%x\n", f->a3);
   }
 }
 
@@ -415,13 +436,17 @@ void kernel_main(void) {
     // proc_b = create_process((uint64_t) proc_b_entry);
 
    // new!
-   create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
+  //  PANIC("Process info start: %x\tsize: %x\n", _binary_shell_bin_start, 
+  //        (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
+  
+    create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
 
     yield();
-    PANIC("switched to idle process");
 }
 
-__attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
+__attribute__((section(".text.boot"))) 
+__attribute__((naked)) 
+void boot(void) {
   __asm__ __volatile__(
       "mv sp, %[stack_top]\n" // Set the stack pointer
       "j kernel_main\n"       // Jump to the kernel main function
