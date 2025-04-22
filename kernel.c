@@ -131,6 +131,10 @@ __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
                        "sret\n");
 }
 
+void myfunc(){
+  PANIC("MY YIELD");
+}
+
 __attribute__((naked)) void switch_context(uint64_t *prev_sp,
                                            uint64_t *next_sp) {
   __asm__ __volatile__(
@@ -153,7 +157,7 @@ __attribute__((naked)) void switch_context(uint64_t *prev_sp,
       // Switch the stack pointer.
       "sd sp, (a0)\n" // *prev_sp = sp;
       "ld sp, (a1)\n" // Switch stack pointer (sp) here
-
+      
       // Restore callee-saved registers from the next process's stack.
       "ld ra,  0  * 8(sp)\n" // Restore callee-saved registers only
       "ld s0,  1  * 8(sp)\n"
@@ -238,40 +242,42 @@ void map_page(uint64_t *root_table, uint64_t vaddr, paddr_t paddr, uint64_t flag
 
 
 // ↓ __attribute__((naked)) is very important!
-// __attribute__((naked)) void user_entry(void) {
-//   __asm__ __volatile__(
-//       "csrw sepc, %[sepc]        \n"
-//       "csrw sstatus, %[sstatus]  \n"
-//       "sret                      \n"
-//       :
-//       : [sepc] "r" (USER_BASE),
-//         [sstatus] "r" (SSTATUS_SPIE)
-//   );
-// }
-
 __attribute__((naked)) void user_entry(void) {
   __asm__ __volatile__(
-      // Set sepc = USER_BASE
-      "li t0, %[user_base]       \n"
-      "csrw sepc, t0             \n"
-
-      // Clear SPP (bit 8) to set U-mode return
-      "csrr t1, sstatus          \n"
-      "li   t2, ~(1 << 8)        \n"
-      "and  t1, t1, t2           \n"
-
-      // Set SPIE (bit 5) so user mode has interrupts enabled
-      "li   t2, (1 << 5)         \n"
-      "or   t1, t1, t2           \n"
-
-      "csrw sstatus, t1          \n"
-      // "li a0, 'U'\n"
-      // "call putchar\n"
+      "csrw sepc, %[sepc]        \n"
+      "csrw sstatus, %[sstatus]  \n"
+      "li a0, 'U'\n"
+      "call putchar\n"
       "sret                      \n"
       :
-      : [user_base] "i" (USER_BASE)
+      : [sepc] "r" (USER_BASE),
+        [sstatus] "r" (SSTATUS_SPIE)
   );
 }
+
+// __attribute__((naked)) void user_entry(void) {
+//   __asm__ __volatile__(
+//       // Set sepc = USER_BASE
+//       "li t0, %[user_base]       \n"
+//       "csrw sepc, t0             \n"
+
+//       // Clear SPP (bit 8) to set U-mode return
+//       "csrr t1, sstatus          \n"
+//       "li   t2, ~(1 << 8)        \n"
+//       "and  t1, t1, t2           \n"
+
+//       // Set SPIE (bit 5) so user mode has interrupts enabled
+//       "li   t2, (1 << 5)         \n"
+//       "or   t1, t1, t2           \n"
+
+//       "csrw sstatus, t1          \n"
+//       // "li a0, 'U'\n"
+//       // "call putchar\n"
+//       "sret                      \n"
+//       :
+//       : [user_base] "i" (USER_BASE)
+//   );
+// }
 
 
 struct process *create_process(const void *image, size_t image_size) {
@@ -364,7 +370,6 @@ void yield(void) {
     struct process *prev = current_proc;
     current_proc = next;
     switch_context(&prev->sp, &next->sp);
-
 }
 
 void delay(void) {
