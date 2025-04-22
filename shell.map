@@ -1,14 +1,14 @@
              VMA              LMA     Size Align Out     In      Symbol
                0                0  1000000     1 . = 0x1000000
          1000000          1000000      2fc     2 .text
-         1000000          1000000       1a     2         /tmp/user-100e3d.o:(.text.start)
+         1000000          1000000       1a     2         /tmp/user-5fbbdc.o:(.text.start)
          1000000          1000000        0     1                 
          1000000          1000000        0     1                 
          1000000          1000000        0     1                 $x.1
          1000000          1000000        0     1                 
          1000000          1000000       1a     1                 start
          100001a          100001a        0     1                 
-         100001a          100001a       12     2         /tmp/shell-f4b796.o:(.text)
+         100001a          100001a       12     2         /tmp/shell-41b96d.o:(.text)
          100001a          100001a        0     1                 
          100001a          100001a        0     1                 
          100001a          100001a        0     1                 $x.0
@@ -19,7 +19,7 @@
          100002a          100002a        0     1                 
          100002c          100002c        0     1                 
          100002c          100002c        0     1                 
-         100002c          100002c       50     2         /tmp/user-100e3d.o:(.text)
+         100002c          100002c       50     2         /tmp/user-5fbbdc.o:(.text)
          100002c          100002c        0     1                 
          100002c          100002c        0     1                 
          100002c          100002c        0     1                 $x.0
@@ -54,7 +54,7 @@
          100007a          100007a        0     1                 
          100007c          100007c        0     1                 
          100007c          100007c        0     1                 
-         100007c          100007c      280     2         /tmp/common-adbf6f.o:(.text)
+         100007c          100007c      280     2         /tmp/common-2b00ee.o:(.text)
          100007c          100007c        0     1                 
          100007c          100007c        0     1                 
          100007c          100007c        0     1                 $x.0
@@ -264,47 +264,47 @@
          1010310          1010310        0     1         __stack_top = .
          1010310          1010310        0     1         
                0                0      2c3     1 .debug_abbrev
-               0                0       5a     1         /tmp/shell-f4b796.o:(.debug_abbrev)
+               0                0       5a     1         /tmp/shell-41b96d.o:(.debug_abbrev)
                0                0        0     1                 $d.1
-              5a               5a      134     1         /tmp/user-100e3d.o:(.debug_abbrev)
+              5a               5a      134     1         /tmp/user-5fbbdc.o:(.debug_abbrev)
               5a               5a        0     1                 $d.3
-             18e              18e      135     1         /tmp/common-adbf6f.o:(.debug_abbrev)
+             18e              18e      135     1         /tmp/common-2b00ee.o:(.debug_abbrev)
              18e              18e        0     1                 $d.3
                0                0      74c     1 .debug_info
-               0                0       62     1         /tmp/shell-f4b796.o:(.debug_info)
+               0                0       62     1         /tmp/shell-41b96d.o:(.debug_info)
                0                0        0     1                 $d.2
-              62               62      358     1         /tmp/user-100e3d.o:(.debug_info)
+              62               62      358     1         /tmp/user-5fbbdc.o:(.debug_info)
               62               62        0     1                 $d.4
-             3ba              3ba      392     1         /tmp/common-adbf6f.o:(.debug_info)
+             3ba              3ba      392     1         /tmp/common-2b00ee.o:(.debug_info)
              3ba              3ba        0     1                 $d.4
-               0                0      1fc     1 .debug_str
-               0                0      1fc     1         <internal>:(.debug_str)
-               0                0       7d     1 .comment
-               0                0       7d     1         <internal>:(.comment)
+               0                0      1f1     1 .debug_str
+               0                0      1f1     1         <internal>:(.debug_str)
+               0                0       80     1 .comment
+               0                0       80     1         <internal>:(.comment)
                0                0       2b     1 .riscv.attributes
                0                0       2b     1         <internal>:(.riscv.attributes)
                0                0      1a8     8 .debug_frame
-               0                0       38     8         /tmp/shell-f4b796.o:(.debug_frame)
+               0                0       38     8         /tmp/shell-41b96d.o:(.debug_frame)
                0                0        0     1                 
                0                0        0     1                 $d.6
-              38               38       c0     8         /tmp/user-100e3d.o:(.debug_frame)
+              38               38       c0     8         /tmp/user-5fbbdc.o:(.debug_frame)
               38               38        0     1                 
               38               38        0     1                 $d.9
-              f8               f8       b0     8         /tmp/common-adbf6f.o:(.debug_frame)
+              f8               f8       b0     8         /tmp/common-2b00ee.o:(.debug_frame)
               f8               f8        0     1                 
               f8               f8        0     1                 $d.9
                0                0      4b8     1 .debug_line
-               0                0       58     1         /tmp/shell-f4b796.o:(.debug_line)
+               0                0       58     1         /tmp/shell-41b96d.o:(.debug_line)
                0                0        0     1                 .Lline_table_start0
                0                0        0     1                 $d.7
-              58               58       a5     1         /tmp/user-100e3d.o:(.debug_line)
+              58               58       a5     1         /tmp/user-5fbbdc.o:(.debug_line)
               58               58        0     1                 .Lline_table_start0
               58               58        0     1                 $d.10
-              fd               fd      3bb     1         /tmp/common-adbf6f.o:(.debug_line)
+              fd               fd      3bb     1         /tmp/common-2b00ee.o:(.debug_line)
               fd               fd        0     1                 .Lline_table_start0
               fd               fd        0     1                 $d.10
                0                0      818     1 .debug_loc
-               0                0      359     1         /tmp/user-100e3d.o:(.debug_loc)
+               0                0      359     1         /tmp/user-5fbbdc.o:(.debug_loc)
                0                0        0     1                 
                0                0        0     1                 $d.2
               59               59        0     1                 
@@ -319,7 +319,7 @@
              2be              2be        0     1                 
              2f1              2f1        0     1                 
              324              324        0     1                 
-             359              359      4bf     1         /tmp/common-adbf6f.o:(.debug_loc)
+             359              359      4bf     1         /tmp/common-2b00ee.o:(.debug_loc)
              359              359        0     1                 
              359              359        0     1                 $d.2
              3b5              3b5        0     1                 
@@ -338,10 +338,10 @@
              738              738        0     1                 
              7cd              7cd        0     1                 
                0                0       60     1 .debug_ranges
-               0                0       30     1         /tmp/user-100e3d.o:(.debug_ranges)
+               0                0       30     1         /tmp/user-5fbbdc.o:(.debug_ranges)
                0                0        0     1                 
                0                0        0     1                 $d.5
-              30               30       30     1         /tmp/common-adbf6f.o:(.debug_ranges)
+              30               30       30     1         /tmp/common-2b00ee.o:(.debug_ranges)
               30               30        0     1                 
               30               30        0     1                 $d.5
                0                0     23e8     8 .symtab

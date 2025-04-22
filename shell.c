@@ -19,6 +19,11 @@ void main(void) {
     // *((volatile int *) 0x80200000) = 0x1234; // new!
 
     putchar('S');
+    // putchar('H');
+    // putchar('E');
+    // putchar('L');
+    // putchar('L');
+    // putchar('\n');
     for (;;);
     // printf("Hello World from shell!\n");
 }

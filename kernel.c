@@ -238,16 +238,41 @@ void map_page(uint64_t *root_table, uint64_t vaddr, paddr_t paddr, uint64_t flag
 
 
 // ↓ __attribute__((naked)) is very important!
+// __attribute__((naked)) void user_entry(void) {
+//   __asm__ __volatile__(
+//       "csrw sepc, %[sepc]        \n"
+//       "csrw sstatus, %[sstatus]  \n"
+//       "sret                      \n"
+//       :
+//       : [sepc] "r" (USER_BASE),
+//         [sstatus] "r" (SSTATUS_SPIE)
+//   );
+// }
+
 __attribute__((naked)) void user_entry(void) {
   __asm__ __volatile__(
-      "csrw sepc, %[sepc]        \n"
-      "csrw sstatus, %[sstatus]  \n"
+      // Set sepc = USER_BASE
+      "li t0, %[user_base]       \n"
+      "csrw sepc, t0             \n"
+
+      // Clear SPP (bit 8) to set U-mode return
+      "csrr t1, sstatus          \n"
+      "li   t2, ~(1 << 8)        \n"
+      "and  t1, t1, t2           \n"
+
+      // Set SPIE (bit 5) so user mode has interrupts enabled
+      "li   t2, (1 << 5)         \n"
+      "or   t1, t1, t2           \n"
+
+      "csrw sstatus, t1          \n"
+      // "li a0, 'U'\n"
+      // "call putchar\n"
       "sret                      \n"
       :
-      : [sepc] "r" (USER_BASE),
-        [sstatus] "r" (SSTATUS_SPIE)
+      : [user_base] "i" (USER_BASE)
   );
 }
+
 
 struct process *create_process(const void *image, size_t image_size) {
     // Find an unused process control structure.
@@ -442,6 +467,7 @@ void kernel_main(void) {
     create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
 
     yield();
+    PANIC("Returned to idle. Likely user code crashed.");
 }
 
 __attribute__((section(".text.boot"))) 
