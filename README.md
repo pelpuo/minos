@@ -21,4 +21,12 @@ This reads and writes the cycle register into x0. Since cycle is a read-only reg
 
 
 ## Current Status 
-[Reached Here](https://operating-system-in-1000-lines.vercel.app/en/14-system-call)
+[Reached Here](https://operating-system-in-1000-lines.vercel.app/en/16-file-system)
+
+
+### Run with GDB
+
+```
+qemu-system-riscv64 -machine virt -bios default -nographic -serial mon:stdio --no-reboot -gdb tcp::1234 -S -kernel kernel.elf 
+
+```

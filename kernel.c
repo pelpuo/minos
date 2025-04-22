@@ -20,6 +20,11 @@ extern char __free_ram[], __free_ram_end[];
 extern char _binary_shell_bin_start[], _binary_shell_bin_size[], _binary_shell_bin_end[];
 extern char __kernel_base[];
 
+struct virtio_virtq *blk_request_vq;
+struct virtio_blk_req *blk_req;
+paddr_t blk_req_paddr;
+unsigned blk_capacity;
+
 struct process procs[PROCS_MAX]; // All process control structures.
 struct process *current_proc; // Currently running process
 struct process *idle_proc;    // Idle process
@@ -54,7 +59,8 @@ long getchar(void) {
 
 __attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void) {
   __asm__ __volatile__(
-                        "csrw sscratch, sp\n"
+                        "csrrw sp, sscratch, sp\n"
+                        // "csrw sscratch, sp\n"
                         "addi sp, sp, -8 * 31\n"
                         "sd ra,  8 * 0(sp)\n"
                         "sd gp,  8 * 1(sp)\n"
@@ -238,7 +244,21 @@ void map_page(uint64_t *root_table, uint64_t vaddr, paddr_t paddr, uint64_t flag
 }
 
 
+uint32_t virtio_reg_read32(unsigned offset) {
+  return *((volatile uint32_t *) (VIRTIO_BLK_PADDR + offset));
+}
 
+uint64_t virtio_reg_read64(unsigned offset) {
+  return *((volatile uint64_t *) (VIRTIO_BLK_PADDR + offset));
+}
+
+void virtio_reg_write32(unsigned offset, uint32_t value) {
+  *((volatile uint32_t *) (VIRTIO_BLK_PADDR + offset)) = value;
+}
+
+void virtio_reg_fetch_and_or32(unsigned offset, uint32_t value) {
+  virtio_reg_write32(offset, virtio_reg_read32(offset) | value);
+}
 
 
 // ↓ __attribute__((naked)) is very important!
@@ -246,8 +266,9 @@ __attribute__((naked)) void user_entry(void) {
   __asm__ __volatile__(
       "csrw sepc, %[sepc]        \n"
       "csrw sstatus, %[sstatus]  \n"
-      "li a0, 'U'\n"
-      "call putchar\n"
+      // "li a0, 'U'\n"
+      // "call putchar\n"
+      "csrw sscratch, sp\n"
       "sret                      \n"
       :
       : [sepc] "r" (USER_BASE),
@@ -309,7 +330,7 @@ struct process *create_process(const void *image, size_t image_size) {
     *--sp = 0;                      // s2
     *--sp = 0;                      // s1
     *--sp = 0;                      // s0
-    // *--sp = (uint64_t) pc;          // ra
+    // *--sp = (uint64_t) pc;       // ra
     *--sp = (uint64_t) user_entry;  // ra (changed!)
 
     uint64_t *page_table = (uint64_t *) alloc_pages(1);
@@ -317,6 +338,8 @@ struct process *create_process(const void *image, size_t image_size) {
     for (paddr_t paddr = (paddr_t) __kernel_base;
          paddr < (paddr_t) __free_ram_end; paddr += PAGE_SIZE)
         map_page(page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
+
+    map_page(page_table, VIRTIO_BLK_PADDR, VIRTIO_BLK_PADDR, PAGE_R | PAGE_W); // new
 
     // Map user pages.
     for (uint64_t off = 0; off < image_size; off += PAGE_SIZE) {
@@ -403,17 +426,23 @@ void handle_syscall(struct trap_frame *f) {
   switch (f->a3) {
       case SYS_PUTCHAR:
         putchar(f->a0);
-        break;
-      // case SYS_GETCHAR:
-      //   while (1) {
-      //     long ch = getchar();
-      //     if (ch >= 0) {
-      //       f->a0 = ch;
-      //       break;
-      //     }
-      //     yield();
-      //   }
-      // break;
+      break;
+      case SYS_GETCHAR:
+        while (1) {
+          long ch = getchar();
+          if (ch >= 0) {
+            f->a0 = ch;
+            break;
+          }
+          yield();
+        }
+      break;
+      case SYS_EXIT:
+        printf("process %d exited\n", current_proc->pid);
+        current_proc->state = PROC_EXITED;
+        yield();
+        PANIC("unreachable");
+      break;
       default:
         PANIC("unexpected syscall a3=%x\n", f->a3);
   }
@@ -437,14 +466,133 @@ void handle_trap(struct trap_frame *f) {
 }
 
 
+struct virtio_virtq *virtq_init(unsigned index) {
+  // Allocate a region for the virtqueue.
+  paddr_t virtq_paddr = alloc_pages(align_up(sizeof(struct virtio_virtq), PAGE_SIZE) / PAGE_SIZE);
+  struct virtio_virtq *vq = (struct virtio_virtq *) virtq_paddr;
+  vq->queue_index = index;
+  vq->used_index = (volatile uint16_t *) &vq->used.index;
+  // 1. Select the queue writing its index (first queue is 0) to QueueSel.
+  virtio_reg_write32(VIRTIO_REG_QUEUE_SEL, index);
+  // 5. Notify the device about the queue size by writing the size to QueueNum.
+  virtio_reg_write32(VIRTIO_REG_QUEUE_NUM, VIRTQ_ENTRY_NUM);
+  // 6. Notify the device about the used alignment by writing its value in bytes to QueueAlign.
+  virtio_reg_write32(VIRTIO_REG_QUEUE_ALIGN, 0);
+  // 7. Write the physical number of the first page of the queue to the QueuePFN register.
+  virtio_reg_write32(VIRTIO_REG_QUEUE_PFN, virtq_paddr);
+  return vq;
+}
+
+// Notifies the device that there is a new request. `desc_index` is the index
+// of the head descriptor of the new request.
+void virtq_kick(struct virtio_virtq *vq, int desc_index) {
+  vq->avail.ring[vq->avail.index % VIRTQ_ENTRY_NUM] = desc_index;
+  vq->avail.index++;
+  __sync_synchronize();
+  virtio_reg_write32(VIRTIO_REG_QUEUE_NOTIFY, vq->queue_index);
+  vq->last_used_index++;
+}
+
+// Returns whether there are requests being processed by the device.
+bool virtq_is_busy(struct virtio_virtq *vq) {
+  return vq->last_used_index != *vq->used_index;
+}
+
+// Reads/writes from/to virtio-blk device.
+void read_write_disk(void *buf, unsigned sector, int is_write) {
+  if (sector >= blk_capacity / SECTOR_SIZE) {
+      printf("virtio: tried to read/write sector=%d, but capacity is %d\n",
+            sector, blk_capacity / SECTOR_SIZE);
+      return;
+  }
+
+  // Construct the request according to the virtio-blk specification.
+  blk_req->sector = sector;
+  blk_req->type = is_write ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN;
+  if (is_write)
+      memcpy(blk_req->data, buf, SECTOR_SIZE);
+
+  // Construct the virtqueue descriptors (using 3 descriptors).
+  struct virtio_virtq *vq = blk_request_vq;
+  vq->descs[0].addr = blk_req_paddr;
+  vq->descs[0].len = sizeof(uint32_t) * 2 + sizeof(uint64_t);
+  vq->descs[0].flags = VIRTQ_DESC_F_NEXT;
+  vq->descs[0].next = 1;
+
+  vq->descs[1].addr = blk_req_paddr + offsetof(struct virtio_blk_req, data);
+  vq->descs[1].len = SECTOR_SIZE;
+  vq->descs[1].flags = VIRTQ_DESC_F_NEXT | (is_write ? 0 : VIRTQ_DESC_F_WRITE);
+  vq->descs[1].next = 2;
+
+  vq->descs[2].addr = blk_req_paddr + offsetof(struct virtio_blk_req, status);
+  vq->descs[2].len = sizeof(uint8_t);
+  vq->descs[2].flags = VIRTQ_DESC_F_WRITE;
+
+  // Notify the device that there is a new request.
+  virtq_kick(vq, 0);
+
+  // Wait until the device finishes processing.
+  while (virtq_is_busy(vq))
+      ;
+
+  // virtio-blk: If a non-zero value is returned, it's an error.
+  if (blk_req->status != 0) {
+      printf("virtio: warn: failed to read/write sector=%d status=%d\n",
+             sector, blk_req->status);
+      return;
+  }
+
+  // For read operations, copy the data into the buffer.
+  if (!is_write)
+      memcpy(buf, blk_req->data, SECTOR_SIZE);
+}
+
+void virtio_blk_init(void) {
+  if (virtio_reg_read32(VIRTIO_REG_MAGIC) != 0x74726976)
+      PANIC("virtio: invalid magic value");
+  if (virtio_reg_read32(VIRTIO_REG_VERSION) != 1)
+      PANIC("virtio: invalid version");
+  if (virtio_reg_read32(VIRTIO_REG_DEVICE_ID) != VIRTIO_DEVICE_BLK)
+      PANIC("virtio: invalid device id");
+
+  // 1. Reset the device.
+  virtio_reg_write32(VIRTIO_REG_DEVICE_STATUS, 0);
+  // 2. Set the ACKNOWLEDGE status bit: the guest OS has noticed the device.
+  virtio_reg_fetch_and_or32(VIRTIO_REG_DEVICE_STATUS, VIRTIO_STATUS_ACK);
+  // 3. Set the DRIVER status bit.
+  virtio_reg_fetch_and_or32(VIRTIO_REG_DEVICE_STATUS, VIRTIO_STATUS_DRIVER);
+  // 5. Set the FEATURES_OK status bit.
+  virtio_reg_fetch_and_or32(VIRTIO_REG_DEVICE_STATUS, VIRTIO_STATUS_FEAT_OK);
+  // 7. Perform device-specific setup, including discovery of virtqueues for the device
+  blk_request_vq = virtq_init(0);
+  // 8. Set the DRIVER_OK status bit.
+  virtio_reg_write32(VIRTIO_REG_DEVICE_STATUS, VIRTIO_STATUS_DRIVER_OK);
+
+  // Get the disk capacity.
+  blk_capacity = virtio_reg_read64(VIRTIO_REG_DEVICE_CONFIG + 0) * SECTOR_SIZE;
+  printf("virtio-blk: capacity is %d bytes\n", blk_capacity);
+
+  // Allocate a region to store requests to the device.
+  blk_req_paddr = alloc_pages(align_up(sizeof(*blk_req), PAGE_SIZE) / PAGE_SIZE);
+  blk_req = (struct virtio_blk_req *) blk_req_paddr;
+}
 
 
 void kernel_main(void) {
   memset(__bss, 0, (size_t)__bss_end - (size_t)__bss);
 
   WRITE_CSR(stvec, (uint64_t) kernel_entry); // new
-  // __asm__ __volatile__("unimp"); // new
+  
+  virtio_blk_init(); // new
 
+  char buf[SECTOR_SIZE];
+  read_write_disk(buf, 0, false /* read from the disk */);
+  printf("first sector: %s\n", buf);
+
+  strcpy(buf, "hello from kernel!!!\n");
+  read_write_disk(buf, 0, true /* write to the disk */);
+  
+  // __asm__ __volatile__("unimp"); // new
 //   paddr_t paddr0 = alloc_pages(2);
 //   paddr_t paddr1 = alloc_pages(1);
 //   printf("alloc_pages test: paddr0=%x\n", paddr0);
@@ -469,10 +617,10 @@ void kernel_main(void) {
   //  PANIC("Process info start: %x\tsize: %x\n", _binary_shell_bin_start, 
   //        (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
   
-    create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
+  create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
 
-    yield();
-    PANIC("Returned to idle. Likely user code crashed.");
+  yield();
+  PANIC("Returned to idle. Likely user code crashed.");
 }
 
 __attribute__((section(".text.boot"))) 

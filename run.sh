@@ -23,5 +23,14 @@ $CC $CFLAGS -mcmodel=medany -fuse-ld=lld -Wl,-Tkernel.ld -Wl,-Map=kernel.map -o 
 riscv64-unknown-elf-objdump -t kernel.elf | grep __
 
 # Start QEMU
+# $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
+#     -d unimp,guest_errors,int,cpu_reset -D qemu.log \
+#     -drive id=drive0,file=lorem.txt,format=raw,if=none \            # new
+#     -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \  # new
+#     -kernel kernel.elf
+
 $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
-    -kernel kernel.elf
+  -d unimp,guest_errors,int,cpu_reset -D qemu.log \
+  -drive id=drive0,file=lorem.txt,format=raw,if=none \
+  -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \
+  -kernel kernel.elf
