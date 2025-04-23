@@ -2,3 +2,8 @@ qemu.log
 shell.bin
 shell.bin.o
 shell.bin.o.dump
+disk.tar
+beep 
+beep.c
+siren
+siren.c

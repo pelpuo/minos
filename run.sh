@@ -29,8 +29,22 @@ riscv64-unknown-elf-objdump -t kernel.elf | grep __
 #     -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \  # new
 #     -kernel kernel.elf
 
+# (cd disk && tar cf ../disk.tar --format=ustar *.txt)
+
+# (cd disk && tar --format=gnu -cf ../disk.tar hello.txt meow.txt)
+
+# $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
+#   -d unimp,guest_errors,int,cpu_reset -D qemu.log \
+#   -drive id=drive0,file=disk.tar,format=raw,if=none \      
+#   -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \
+#   -kernel kernel.elf
+
+# (cd disk && tar cf ../disk.tar --format=ustar *.txt)             
+# (cd disk && tar --format=ustar -cf ../disk.tar hello.txt meow.txt)
+(cd disk && tar --format=ustar --owner=0 --group=0 -cf ../disk.tar hello.txt meow.txt)
+
 $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
-  -d unimp,guest_errors,int,cpu_reset -D qemu.log \
-  -drive id=drive0,file=lorem.txt,format=raw,if=none \
-  -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \
-  -kernel kernel.elf
+    -d unimp,guest_errors,int,cpu_reset -D qemu.log \
+    -drive id=drive0,file=disk.tar,format=raw,if=none \
+    -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \
+    -kernel kernel.elf
