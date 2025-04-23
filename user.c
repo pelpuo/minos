@@ -32,6 +32,22 @@ int writefile(const char *filename, const char *buf, int len) {
     return syscall(SYS_WRITEFILE, (int) filename, (int) buf, len);
 }
 
+int ipc_send(int dest_pid, const void *msg, int len) {
+    return syscall(SYS_IPC_SEND, dest_pid, (uint64_t)msg, len);
+}
+
+int monitor_kill(int pid) {
+    return syscall(SYS_MONITOR_KILL, pid, 0, 0);
+}
+  
+int ipc_recv(void *buf, int maxlen) {
+    return syscall(SYS_IPC_RECV, (uint64_t)buf, maxlen, 0);
+}
+
+int spawn(const void *image, int size) {
+    return syscall(SYS_SPAWN, (uint64_t)image, size, 0);
+}  
+
 __attribute__((noreturn)) void exit(void) {
     syscall(SYS_EXIT, 0, 0, 0);
     for (;;);

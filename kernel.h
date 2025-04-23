@@ -1,6 +1,30 @@
 #pragma once
 #include "common.h"
 
+// Interrupt causes for S-mode (when bit-63 of scause is 1)
+// at top of kernel.c or kernel.h
+#define INTR_SSOFT 1       // supervisor software
+#define INTR_STIMER 5      // supervisor timer
+#define INTR_SEXT   9      // supervisor external
+#define INTR_MEXT  11      // machine external (delegated)
+#define SIP_SSIP   (1UL << 1)
+
+#define INTR_USOFT  1    // supervisor software
+#define INTR_UTIMER 5    // supervisor timer
+#define INTR_UEXT   9    // supervisor external
+
+#define INTR_STIMER 5    // supervisor timer
+#define INTR_SEXT   9    // supervisor external
+#define INTR_MEXT  11    // machine external, delegated
+
+// Bits in the sie CSR
+#define SIE_STIE    (1UL << 5)  // supervisor-timer interrupt enable
+#define SIE_SEIE    (1UL << 9)  // supervisor-external interrupt enable
+
+// Bit in the sstatus CSR
+#define SSTATUS_SIE (1UL << 1)  // global S-mode interrupt enable
+
+
 #define PANIC(fmt, ...)                                                        \
     do {                                                                       \
         printf("PANIC: %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);  \
@@ -45,12 +69,29 @@
 #define PROC_RUNNABLE 1   // Runnable process
 #define PROC_EXITED   2
 
+#define MONITOR_PID 1
+
+#define IPC_BUF_SIZE  256   // adjust as you like
+
+struct SyscallEvent {
+    int pid;
+    int num;
+    uint64_t args[4];
+};
+
 struct process {
     int pid;             // Process ID
     int state;           // Process state: PROC_UNUSED or PROC_RUNNABLE
     vaddr_t sp;          // Stack pointer
     uint64_t *page_table;
     uint8_t stack[8192]; // Kernel stack
+
+    // ── NEW for IPC ──────────────────────────────────────────
+    uint8_t  ipc_buf[IPC_BUF_SIZE];
+    int      ipc_head;      // next read index
+    int      ipc_tail;      // next write index
+    int      ipc_count;     // number of bytes queued
+    bool     ipc_blocked;   // true if task is blocked in SYS_IPC_RECV
 };
 
 struct sbiret {

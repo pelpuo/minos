@@ -14,6 +14,13 @@
 // }
 
 #include "user.h"
+#include "common.h"
+#include "myapp_bin.h"    // ← from `xxd -i myapp.bin > myapp_bin.h`
+#include "mal_bin.h"    // ← from `xxd -i myapp.bin > myapp_bin.h`
+
+// extern const uint8_t myapp_bin[];    // linker symbols
+// extern const size_t  myapp_bin_len;
+
 
 // void main(void) {
 //     // *((volatile int *) 0x80200000) = 0x1234; // new!
@@ -57,6 +64,20 @@ prompt:
             int len = readfile("hello.txt", buf, sizeof(buf));
             buf[len] = '\0';
             printf("%s\n", buf);
+        }
+        else if (strcmp(cmdline, "myapp") == 0) {
+            int pid = spawn(myapp_bin, (int)myapp_bin_len);
+            if (pid < 0)
+                printf("shell: failed to spawn myapp\n");
+            // else
+                // printf("shell: launched myapp (pid=%d)\n", pid);
+        }
+        else if (strcmp(cmdline, "malware") == 0) {
+            int pid = spawn(mal_bin, (int)mal_bin_len);
+            if (pid < 0)
+                printf("shell: failed to spawn myapp\n");
+            // else
+                // printf("shell: launched myapp (pid=%d)\n", pid);
         }
         else if (strcmp(cmdline, "writefile") == 0)
             writefile("hello.txt", "Hello from shell!\n", 19);

@@ -15,34 +15,43 @@ $CC $CFLAGS -Wl,-Tuser.ld -Wl,-Map=shell.map -o shell.elf shell.c user.c common.
 $OBJCOPY --set-section-flags .bss=alloc,contents -O binary shell.elf shell.bin
 $OBJCOPY -Ibinary -Oelf64-littleriscv shell.bin shell.bin.o
 
+# ← monitor: build the monitor exactly the same way
+$CC $CFLAGS -Wl,-Tuser.ld -Wl,-Map=monitor.map \
+    -o monitor.elf monitor.c user.c common.c
+$OBJCOPY --set-section-flags .bss=alloc,contents -O binary monitor.elf monitor.bin
+$OBJCOPY -Ibinary -Oelf64-littleriscv monitor.bin monitor.bin.o
+
+xxd -i monitor.bin > monitor_bin.h
+
+# ← myapp: build the user app exactly the same way
+$CC $CFLAGS -Wl,-Tuser.ld -Wl,-Map=myapp.map \
+    -o myapp.elf myapp.c user.c common.c
+$OBJCOPY --set-section-flags .bss=alloc,contents -O binary myapp.elf myapp.bin
+$OBJCOPY -Ibinary -Oelf64-littleriscv myapp.bin myapp.bin.o
+
+# generate a C array and length constant
+xxd -i myapp.bin > myapp_bin.h
+
+# ← myapp: build the user app exactly the same way
+$CC $CFLAGS -Wl,-Tuser.ld -Wl,-Map=mal.map \
+    -o mal.elf mal.c user.c common.c
+$OBJCOPY --set-section-flags .bss=alloc,contents -O binary mal.elf mal.bin
+$OBJCOPY -Ibinary -Oelf64-littleriscv mal.bin mal.bin.o
+
+# generate a C array and length constant
+xxd -i mal.bin > mal_bin.h
+
+
 # Build the kernel
 $CC $CFLAGS -mcmodel=medany -fuse-ld=lld -Wl,-Tkernel.ld -Wl,-Map=kernel.map -o kernel.elf \
-    kernel.c common.c shell.bin.o
+    kernel.c common.c monitor.bin.o shell.bin.o
 
 # Check symbols in the ELF (useful for debugging addresses)
 riscv64-unknown-elf-objdump -t kernel.elf | grep __
 
-# Start QEMU
-# $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
-#     -d unimp,guest_errors,int,cpu_reset -D qemu.log \
-#     -drive id=drive0,file=lorem.txt,format=raw,if=none \            # new
-#     -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \  # new
-#     -kernel kernel.elf
-
-# (cd disk && tar cf ../disk.tar --format=ustar *.txt)
-
-# (cd disk && tar --format=gnu -cf ../disk.tar hello.txt meow.txt)
-
-# $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
-#   -d unimp,guest_errors,int,cpu_reset -D qemu.log \
-#   -drive id=drive0,file=disk.tar,format=raw,if=none \      
-#   -device virtio-blk-device,drive=drive0,bus=virtio-mmio-bus.0 \
-#   -kernel kernel.elf
-
-# (cd disk && tar cf ../disk.tar --format=ustar *.txt)             
-# (cd disk && tar --format=ustar -cf ../disk.tar hello.txt meow.txt)
 (cd disk && tar --format=ustar --owner=0 --group=0 -cf ../disk.tar hello.txt meow.txt)
 
+# $QEMU -machine virt -bios default -nographic -monitor none -serial stdio --no-reboot \
 $QEMU -machine virt -bios default -nographic -serial mon:stdio --no-reboot \
     -d unimp,guest_errors,int,cpu_reset -D qemu.log \
     -drive id=drive0,file=disk.tar,format=raw,if=none \

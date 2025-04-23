@@ -2,6 +2,8 @@
 #include "common.h"
 #include <stdint.h>
 
+#include "monitor_bin.h"
+
 #define READ_CSR(reg)                                                          \
   ({                                                                           \
     unsigned long __tmp;                                                       \
@@ -18,12 +20,15 @@
 extern char __bss[], __bss_end[], __stack_top[];
 extern char __free_ram[], __free_ram_end[];
 extern char _binary_shell_bin_start[], _binary_shell_bin_size[], _binary_shell_bin_end[];
+// extern char _binary_monitor_bin_start[], _binary_monitor_bin_size[];
 extern char __kernel_base[];
 
 struct virtio_virtq *blk_request_vq;
 struct virtio_blk_req *blk_req;
 paddr_t blk_req_paddr;
 unsigned blk_capacity;
+
+static int monitor_pid = -1;
 
 struct file files[FILES_MAX];
 uint8_t disk[DISK_MAX_SIZE];
@@ -343,36 +348,85 @@ struct process *create_process(const void *image, size_t image_size) {
     return proc;
 }
 
+// void yield(void) {
+//     // Search for a runnable process
+//     int cur = current_proc->pid;
+//     struct process *next = idle_proc;
+//     for (int i = 0; i < PROCS_MAX; i++) {
+//         struct process *proc = &procs[(current_proc->pid + i) % PROCS_MAX];
+//         if (proc->state == PROC_RUNNABLE && proc->pid > 0) {
+//             next = proc;
+//             break;
+//         }
+//     }
+
+//     printf("yield: %d → %d\n", cur, next->pid);
+//     // If there's no runnable process other than the current one, return and continue processing
+//     if (next == current_proc)
+//         return;
+
+//     __asm__ __volatile__(
+//         "sfence.vma\n"
+//         "csrw satp, %[satp]\n"
+//         "sfence.vma\n"
+//         "csrw sscratch, %[sscratch]\n"
+//         :
+//         : [satp] "r" (SATP_SV39 | ((uint64_t) next->page_table / PAGE_SIZE)), 
+//         [sscratch] "r" ((uint64_t) &next->stack[sizeof(next->stack)])
+//     );
+
+//     // Context switch
+//     struct process *prev = current_proc;
+//     current_proc = next;
+//     switch_context(&prev->sp, &next->sp);
+// }
+
 void yield(void) {
-    // Search for a runnable process
-    struct process *next = idle_proc;
-    for (int i = 0; i < PROCS_MAX; i++) {
-        struct process *proc = &procs[(current_proc->pid + i) % PROCS_MAX];
-        if (proc->state == PROC_RUNNABLE && proc->pid > 0) {
-            next = proc;
-            break;
-        }
-    }
+  // 1) Figure out the current_proc’s slot index in the `procs[]` array
+  int cur_idx = current_proc - procs;  
+  int next_idx = -1;
 
-    // If there's no runnable process other than the current one, return and continue processing
-    if (next == current_proc)
-        return;
+  // 2) Round-robin search for the next PROC_RUNNABLE & pid>0
+  for (int i = 1; i < PROCS_MAX; i++) {
+      int idx = (cur_idx + i) % PROCS_MAX;
+      if (procs[idx].state == PROC_RUNNABLE && procs[idx].pid > 0) {
+          next_idx = idx;
+          break;
+      }
+  }
 
-    __asm__ __volatile__(
-        "sfence.vma\n"
-        "csrw satp, %[satp]\n"
-        "sfence.vma\n"
-        "csrw sscratch, %[sscratch]\n"
-        :
-        : [satp] "r" (SATP_SV39 | ((uint64_t) next->page_table / PAGE_SIZE)), 
-        [sscratch] "r" ((uint64_t) &next->stack[sizeof(next->stack)])
-    );
+  // 3) If we didn’t find any user process to run, fall back to idle
+  // if (next_idx < 0) {
+  //     next_idx = 0;  // we conventionally use slot 0 for idle
+  // }
 
-    // Context switch
-    struct process *prev = current_proc;
-    current_proc = next;
-    switch_context(&prev->sp, &next->sp);
+  if (next_idx < 0) {
+      return;
+  }
+
+  // 4) If that’s still the current process, nothing to do
+  struct process *next = &procs[next_idx];
+  if (next == current_proc) {
+      return;
+  }
+
+  // 5) Switch address space to the next process
+  __asm__ __volatile__(
+      "sfence.vma\n"
+      "csrw satp, %[satp]\n"
+      "sfence.vma\n"
+      "csrw sscratch, %[sscratch]\n"
+      :
+      : [satp]    "r"(SATP_SV39 | ((uint64_t) next->page_table / PAGE_SIZE)),
+        [sscratch]"r"((uint64_t)&next->stack[sizeof(next->stack)])
+  );
+
+  // 6) Perform the context switch
+  struct process *prev = current_proc;
+  current_proc = next;
+  switch_context(&prev->sp, &next->sp);
 }
+
 
 void delay(void) {
     for (int i = 0; i < 30000000; i++)
@@ -568,73 +622,254 @@ void fs_flush(void) {
   printf("wrote %d bytes to disk\n", sizeof(disk));
 }
 
-void handle_syscall(struct trap_frame *f) {
-  switch (f->a3) {
+
+/// Find the process control block for a given PID, or NULL if not found.
+static struct process *
+find_proc_by_pid(int pid) {
+    for (int i = 0; i < PROCS_MAX; i++) {
+        if (procs[i].pid == pid)
+            return &procs[i];
+    }
+    return NULL;
+}
+
+/// Safely read one byte from user‐space at uaddr.
+/// (Here we just trust the user pointer; in a real OS you'd validate the vaddr
+/// against the process’s page table.)
+static uint8_t
+safe_load_byte(const uint8_t *uaddr) {
+    return *uaddr;
+}
+
+/// Safely write one byte to user‐space at uaddr.
+static void
+safe_store_byte(uint8_t *uaddr, uint8_t val) {
+    *uaddr = val;
+}
+
+
+// Internal IPC send for kernel use (non-blocking)
+static int ipc_do_send(int dest, const void *msg, int len) {
+  struct process *dst = find_proc_by_pid(dest);
+  if (!dst || len < 0 || len > IPC_BUF_SIZE) return -1;
+  if (dst->ipc_count + len > IPC_BUF_SIZE) return -2;
+  const uint8_t *src = msg;
+  for (int i = 0; i < len; i++) {
+      dst->ipc_buf[dst->ipc_tail] = safe_load_byte(src + i);  
+      dst->ipc_tail = (dst->ipc_tail + 1) % IPC_BUF_SIZE;
+  }
+  dst->ipc_count += len;
+  if (dst->ipc_blocked) {
+      dst->ipc_blocked = false;
+      dst->state = PROC_RUNNABLE;
+  }
+  return len;
+}
+
+
+static long dispatch_syscall(int no, struct trap_frame *f) {
+  switch (no) {
       case SYS_PUTCHAR:
-        putchar(f->a0);
-      break;
-      case SYS_GETCHAR:
-        while (1) {
-          long ch = getchar();
-          if (ch >= 0) {
-            f->a0 = ch;
-            break;
-          }
-          yield();
-        }
-      break;
+          putchar(f->a0);
+          return 0;
+
+      case SYS_GETCHAR: {
+          long c;
+          do {
+              c = getchar();
+              yield();
+          } while (c < 0);
+          f->a0 = c;
+          return c;
+      }
+
       case SYS_EXIT:
-        printf("process %d exited\n", current_proc->pid);
-        current_proc->state = PROC_EXITED;
-        yield();
-        PANIC("unreachable");
-      break;
+          current_proc->state = PROC_EXITED;
+          yield();
+          // unreachable
+     
       case SYS_READFILE:
       case SYS_WRITEFILE: {
-          const char *filename = (const char *) f->a0;
-          char *buf = (char *) f->a1;
-          int len = f->a2;
-          struct file *file = fs_lookup(filename);
+          const char *filename = (const char *)f->a0;
+          char *buf             = (char *)       f->a1;
+          int   len             =                f->a2;
+          struct file *file     = fs_lookup(filename);
           if (!file) {
-              printf("file not found: %s\n", filename);
               f->a0 = -1;
-              break;
+              return -1;
           }
-
-          if (len > (int) sizeof(file->data))
-              len = file->size;
-
           if (f->a3 == SYS_WRITEFILE) {
+              if (len > (int)sizeof(file->data)) len = file->size;
               memcpy(file->data, buf, len);
               file->size = len;
               fs_flush();
           } else {
+              if (len > (int)sizeof(file->data)) len = file->size;
               memcpy(buf, file->data, len);
           }
-
           f->a0 = len;
-          break;
+          yield();
+          return len;
       }
+
+      case SYS_IPC_SEND:
+          return ipc_do_send(
+              /* dest */   f->a0,
+              /* msg ptr */(void *)f->a1,
+              /* length */ f->a2
+          );
+
+      case SYS_IPC_RECV: {
+          uint8_t *buf    = (void *)f->a0;
+          int       maxlen=                f->a1;
+
+          if (maxlen < 0)
+              return -1;
+
+          if (current_proc->ipc_count == 0) {
+              current_proc->ipc_blocked = true;
+              current_proc->state       = PROC_UNUSED;
+              yield();
+          }
+
+          int got = current_proc->ipc_count;
+          if (got > maxlen) got = maxlen;
+
+          for (int i = 0; i < got; i++) {
+              safe_store_byte(
+                  buf + i,
+                  current_proc->ipc_buf[current_proc->ipc_head]
+              );
+              current_proc->ipc_head =
+                  (current_proc->ipc_head + 1) % IPC_BUF_SIZE;
+          }
+          current_proc->ipc_count -= got;
+          return got;
+      }
+      break;
+      case SYS_SPAWN: {
+        const void *image = (void*)f->a0;
+        int         sz    = (int)   f->a1;
+        if (!image || sz <= 0) {
+            f->a0 = -1;
+        } else {
+            struct process *p = create_process(image, sz);
+            f->a0 = p ? p->pid : -1;
+        }
+        // optionally preempt so the new process can run immediately:
+        yield();
+        return f->a0;
+      }
+      case SYS_MONITOR_KILL:
+          // kill the process with the given PID
+          if (f->a0 == 0) {
+              f->a0 = -1;
+              return -1;
+          }
+          struct process *p = find_proc_by_pid(f->a0);
+          if (!p) {
+              f->a0 = -1;
+              return -1;
+          }
+          p->state = PROC_EXITED;
+          yield();
+          return 0;
+      break;
+
       default:
-        PANIC("unexpected syscall a3=%x\n", f->a3);
+          PANIC("unexpected syscall %d", no);
   }
 }
 
 
+// static void post_syscall_hook(int pid, int sysno, uint64_t *args) {
+//   struct SyscallEvent ev = {.pid = pid, .num = sysno};
+//   for (int i = 0; i < 4; i++) ev.args[i] = args[i];
+//   // drop on full
+//   (void)ipc_do_send(monitor_pid, &ev, sizeof(ev));
+// }
+
+static void post_syscall_hook(int pid, int sysno, uint64_t *args) {
+  // don’t notify the monitor about *its own* syscalls
+  if (pid == monitor_pid)
+      return;
+
+  struct SyscallEvent ev = { .pid = pid, .num = sysno };
+  for (int i = 0; i < 4; i++)
+      ev.args[i] = args[i];
+
+  // send it into the monitor’s IPC buffer
+  (void)ipc_do_send(monitor_pid, &ev, sizeof(ev));
+}
+
+
+// // Trap entry stub
+// void handle_trap(struct trap_frame *f) {
+//   uint64_t sc = READ_CSR(scause);
+//   uint64_t pc = READ_CSR(sepc);
+//   if ((sc >> 63) != 0) {
+//     // interrupts ... as before ...
+//   } else if ((sc & 0xfff) == SCAUSE_ECALL) {
+//     int no = f->a3;
+//     uint64_t args[] = {f->a0,f->a1,f->a2,f->a3};
+//     long ret = dispatch_syscall(no, f);
+//     f->a0 = ret;
+//     post_syscall_hook(current_proc->pid, no, args);
+//     WRITE_CSR(sepc, pc + 4);
+//   } else {
+//     PANIC("unexpected trap scause=%lx", sc);
+//   }
+// }
+
+
+// kernel.c
+
 void handle_trap(struct trap_frame *f) {
-  uint64_t scause = READ_CSR(scause);
-  uint64_t stval = READ_CSR(stval);
-  uint64_t user_pc = READ_CSR(sepc);
+  uint64_t sc = READ_CSR(scause);
+  uint64_t pc = READ_CSR(sepc);
 
-  if (scause == SCAUSE_ECALL) {
-      handle_syscall(f);
-      user_pc += 4;
-  } else {
-      PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+  // —— Interrupt? (high bit set) —————————————————————————————————
+  if (sc >> 63) {
+      uint64_t cause = sc & 0xfff;
+      switch (cause) {
+          case INTR_STIMER: {
+              // Re-arm next tick (~10 ms on QEMU’s 10 MHz CLINT)
+              uint64_t now  = READ_CSR(time);
+              uint64_t when = now + 10000000;
+              sbi_call(when, when >> 32, 0,0,0,0, 0,0);
+
+              // Preempt current process
+              yield();
+              return;
+          }
+
+          case INTR_SEXT:   // supervisor-external (e.g. virtio-blk)
+          case INTR_MEXT:   // machine-external (delegated into S-mode)
+              // No PLIC driver yet → just drop it
+              return;
+
+          default:
+              PANIC("unexpected interrupt cause=%lx", cause);
+      }
   }
+  // —— Syscall (S-mode ECALL) —————————————————————————————————
+  else if ((sc & 0xfff) == SCAUSE_ECALL) {
+      int     no   = f->a3;
+      uint64_t args[4] = { f->a0, f->a1, f->a2, f->a3 };
 
-  WRITE_CSR(sepc, user_pc);
+      long ret = dispatch_syscall(no, f);
+      f->a0 = ret;
 
+      post_syscall_hook(current_proc->pid, no, args);
+
+      // Advance past the ECALL instruction
+      WRITE_CSR(sepc, pc + 4);
+      return;
+  }
+  // —— Everything else is fatal ————————————————————————————————
+  else {
+      PANIC("unexpected trap scause=%lx, sepc=%lx", sc, pc);
+  }
 }
 
 int oct2int(char *oct, int len) {
@@ -675,50 +910,65 @@ void fs_init(void) {
 
 
 void kernel_main(void) {
+  // Zero BSS
   memset(__bss, 0, (size_t)__bss_end - (size_t)__bss);
 
-  WRITE_CSR(stvec, (uint64_t) kernel_entry); // new
+  // 1) Point traps at kernel_entry
+  WRITE_CSR(stvec, (uint64_t)kernel_entry);
+
+  // 2) Enable timer & external interrupts in S-mode
+
+  // uint64_t _sie = READ_CSR(sie);
+  // _sie |= SIE_STIE    // timer
+  //       | SIE_SEIE;   // external (UART, virtio, etc.)
+  // WRITE_CSR(sie, _sie);
+  uint64_t _sie = READ_CSR(sie);
+  // _sie |= SIE_STIE;   // only timer interrupts
+  _sie &= ~SIE_STIE;   // only timer interrupts
+
+  uint64_t _sst = READ_CSR(sstatus);
+  _sst |= SSTATUS_SIE;  // global enable
+  WRITE_CSR(sstatus, _sst);
+
+
+  // 3) Arm the first timer tick (~10 ms on QEMU virt’s 10 MHz CLINT)
   
-  virtio_blk_init(); // new
+  uint64_t now  = READ_CSR(time);
+  uint64_t when = now + 10000000;
+  // SBI legacy set_timer:
+  sbi_call(when, when >> 32, 0,0,0,0, /*fid=*/0, /*eid=*/0);
+  
+
+  // 4) Init devices & filesystem
+  virtio_blk_init();
   fs_init();
 
   char buf[SECTOR_SIZE];
-  read_write_disk(buf, 0, false /* read from the disk */);
+  read_write_disk(buf, 0, false);
   printf("first sector: %s\n", buf);
 
   strcpy(buf, "hello from kernel!!!\n");
-  read_write_disk(buf, 0, true /* write to the disk */);
+  read_write_disk(buf, 0, true);
+
+  // 5) Create idle, monitor, shell in that order
+  idle_proc = create_process(NULL, 0);
+  idle_proc->pid = 0;
+  current_proc = idle_proc;
+
+  // create_process(monitor_bin,        monitor_bin_len);  // PID 1
   
-  // __asm__ __volatile__("unimp"); // new
-//   paddr_t paddr0 = alloc_pages(2);
-//   paddr_t paddr1 = alloc_pages(1);
-//   printf("alloc_pages test: paddr0=%x\n", paddr0);
-//   printf("alloc_pages test: paddr1=%x\n", paddr1);
-
-//   proc_a = create_process((uint64_t) proc_a_entry);
-//   proc_b = create_process((uint64_t) proc_b_entry);
-//   proc_a_entry();
-
-//   PANIC("booted!");
-//   printf("unreachable here!\n");
-
-    // idle_proc = create_process((uint64_t) NULL);
-    idle_proc = create_process(NULL, 0); // updated!
-    idle_proc->pid = 0; // idle
-    current_proc = idle_proc;
-
-    // proc_a = create_process((uint64_t) proc_a_entry);
-    // proc_b = create_process((uint64_t) proc_b_entry);
-
-   // new!
-  //  PANIC("Process info start: %x\tsize: %x\n", _binary_shell_bin_start, 
-  //        (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
+  struct process *mp = create_process(monitor_bin, monitor_bin_len);
+  monitor_pid = mp->pid;
   
-  create_process(_binary_shell_bin_start, (uintptr_t)_binary_shell_bin_end - (uintptr_t)_binary_shell_bin_start);
+  create_process(_binary_shell_bin_start,
+                 (size_t)(_binary_shell_bin_end - _binary_shell_bin_start));  // PID 2
 
+  // 6) Enter the scheduler
   yield();
   PANIC("Returned to idle. Likely user code crashed.");
 }
+
+
 
 __attribute__((section(".text.boot"))) 
 __attribute__((naked)) 
