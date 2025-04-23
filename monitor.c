@@ -71,7 +71,7 @@ typedef struct {
 // 2) Heavy writes: writefile, writefile, writefile
 static const pattern_t malware_patterns[MAX_PATTERNS] = {
     { .len = 4, .seq = { SYS_CONNECT, SYS_DUP2, SYS_DUP2, SYS_DUP2 } },
-    { .len = 3, .seq = { SYS_WRITEFILE, SYS_WRITEFILE, SYS_WRITEFILE } }
+    { .len = 3, .seq = { SYS_READFILE, SYS_CONNECT, SYS_WRITEFILE } }
 };
 
 // Per‑PID circular history buffer

@@ -2,7 +2,7 @@
                0                0 80200000     1 . = 0x80200000
         80200000                0        0     1 __kernel_base = .
         80200000         80200000     1da6     4 .text
-        80200000         80200000        e     2         /tmp/kernel-5f2fe3.o:(.text.boot)
+        80200000         80200000        e     2         /tmp/kernel-8cd0ce.o:(.text.boot)
         80200000         80200000        0     1                 
         80200000         80200000        0     1                 
         80200000         80200000        0     1                 .Lpcrel_hi105
@@ -11,7 +11,7 @@
         80200000         80200000        e     1                 boot
         8020000e         8020000e        0     1                 
         8020000e         8020000e        0     1                 
-        80200010         80200010     1b16     4         /tmp/kernel-5f2fe3.o:(.text)
+        80200010         80200010     1b16     4         /tmp/kernel-8cd0ce.o:(.text)
         80200010         80200010        0     1                 
         80200010         80200010        0     1                 
         80200010         80200010        0     1                 $x.0
@@ -1645,7 +1645,7 @@
         80201b24         80201b24        0     1                 
         80201b26         80201b26        0     1                 
         80201b26         80201b26        0     1                 
-        80201b26         80201b26      280     2         /tmp/common-78de65.o:(.text)
+        80201b26         80201b26      280     2         /tmp/common-d8f3ba.o:(.text)
         80201b26         80201b26        0     1                 
         80201b26         80201b26        0     1                 
         80201b26         80201b26        0     1                 $x.0
@@ -1849,12 +1849,12 @@
         80201da6         80201da6        0     1                 
         80201da6         80201da6        0     1                 
         80201da8         80201da8      382     8 .rodata
-        80201da8         80201da8       60     8         /tmp/kernel-5f2fe3.o:(.rodata)
+        80201da8         80201da8       60     8         /tmp/kernel-8cd0ce.o:(.rodata)
         80201da8         80201da8        0     1                 .LJTI25_0
         80201da8         80201da8        0     1                 $d.2
         80201e08         80201e08      322     1         <internal>:(.rodata.str1.1)
         8020212c         8020212c    528a0     4 .data
-        8020212c         8020212c    10d40     1         /tmp/kernel-5f2fe3.o:(.data)
+        8020212c         8020212c    10d40     1         /tmp/kernel-8cd0ce.o:(.data)
         8020212c         8020212c        0     1                 $d.4
         8020212c         8020212c    10d40     1                 monitor_bin
         80212e6c         80212e6c    10d40     1         monitor.bin.o:(.data)
@@ -1864,7 +1864,7 @@
         80223bac         80223bac        0     1                 _binary_shell_bin_start
         802549cc         802549cc        0     1                 _binary_shell_bin_end
         802549d0         802549d0       1c     8 .sdata
-        802549d0         802549d0       1c     8         /tmp/kernel-5f2fe3.o:(.sdata)
+        802549d0         802549d0       1c     8         /tmp/kernel-8cd0ce.o:(.sdata)
         802549d0         802549d0        0     1                 .LCPI14_0
         802549d0         802549d0        0     1                 $d.1
         802549d8         802549d8        4     1                 monitor_bin_len
@@ -1872,12 +1872,12 @@
         802549e8         802549e8        4     1                 monitor_pid
         802549f0         802549f0    11c60     8 .bss
         802549f0         802549f0        0     1         __bss = .
-        802549f0         802549f0    11c20     8         /tmp/kernel-5f2fe3.o:(.bss)
+        802549f0         802549f0    11c20     8         /tmp/kernel-8cd0ce.o:(.bss)
         802549f0         802549f0        0     1                 $d.6
         802549f0         802549f0    10940     1                 procs
         80265330         80265330      8e0     1                 files
         80265c10         80265c10      a00     1                 disk
-        80266610         80266610       40     8         /tmp/kernel-5f2fe3.o:(.sbss)
+        80266610         80266610       40     8         /tmp/kernel-8cd0ce.o:(.sbss)
         80266610         80266610        0     1                 $d.7
         80266610         80266610        8     1                 current_proc
         80266618         80266618        4     1                 blk_capacity
@@ -1895,8 +1895,8 @@
         80287000         80287000        0     1 __free_ram = .
         80287000         80287000  4000000     1 . += 64 * 1024 * 1024
         84287000         84287000        0     1 __free_ram_end = .
-               0                0     395d     1 .debug_loc
-               0                0     349e     1         /tmp/kernel-5f2fe3.o:(.debug_loc)
+               0                0     3954     1 .debug_loc
+               0                0     3495     1         /tmp/kernel-8cd0ce.o:(.debug_loc)
                0                0        0     1                 
                0                0        0     1                 $d.8
               33               33        0     1                 
@@ -2053,41 +2053,41 @@
             32f8             32f8        0     1                 
             332b             332b        0     1                 
             335e             335e        0     1                 
-            339f             339f        0     1                 
-            33d2             33d2        0     1                 
-            3405             3405        0     1                 
-            3438             3438        0     1                 
-            346b             346b        0     1                 
-            349e             349e      4bf     1         /tmp/common-78de65.o:(.debug_loc)
-            349e             349e        0     1                 
-            349e             349e        0     1                 $d.2
-            34fa             34fa        0     1                 
-            351f             351f        0     1                 
-            3542             3542        0     1                 
-            359e             359e        0     1                 
-            35c3             35c3        0     1                 
-            35f9             35f9        0     1                 
-            3642             3642        0     1                 
-            36a0             36a0        0     1                 
-            36c3             36c3        0     1                 
-            36f9             36f9        0     1                 
-            372f             372f        0     1                 
-            378d             378d        0     1                 
-            385a             385a        0     1                 
-            387d             387d        0     1                 
-            3912             3912        0     1                 
+            3396             3396        0     1                 
+            33c9             33c9        0     1                 
+            33fc             33fc        0     1                 
+            342f             342f        0     1                 
+            3462             3462        0     1                 
+            3495             3495      4bf     1         /tmp/common-d8f3ba.o:(.debug_loc)
+            3495             3495        0     1                 
+            3495             3495        0     1                 $d.2
+            34f1             34f1        0     1                 
+            3516             3516        0     1                 
+            3539             3539        0     1                 
+            3595             3595        0     1                 
+            35ba             35ba        0     1                 
+            35f0             35f0        0     1                 
+            3639             3639        0     1                 
+            3697             3697        0     1                 
+            36ba             36ba        0     1                 
+            36f0             36f0        0     1                 
+            3726             3726        0     1                 
+            3784             3784        0     1                 
+            3851             3851        0     1                 
+            3874             3874        0     1                 
+            3909             3909        0     1                 
                0                0      4bc     1 .debug_abbrev
-               0                0      387     1         /tmp/kernel-5f2fe3.o:(.debug_abbrev)
+               0                0      387     1         /tmp/kernel-8cd0ce.o:(.debug_abbrev)
                0                0        0     1                 $d.9
-             387              387      135     1         /tmp/common-78de65.o:(.debug_abbrev)
+             387              387      135     1         /tmp/common-d8f3ba.o:(.debug_abbrev)
              387              387        0     1                 $d.3
                0                0     2da7     1 .debug_info
-               0                0     2a15     1         /tmp/kernel-5f2fe3.o:(.debug_info)
+               0                0     2a15     1         /tmp/kernel-8cd0ce.o:(.debug_info)
                0                0        0     1                 $d.10
-            2a15             2a15      392     1         /tmp/common-78de65.o:(.debug_info)
+            2a15             2a15      392     1         /tmp/common-d8f3ba.o:(.debug_info)
             2a15             2a15        0     1                 $d.4
                0                0      5e0     1 .debug_ranges
-               0                0      5b0     1         /tmp/kernel-5f2fe3.o:(.debug_ranges)
+               0                0      5b0     1         /tmp/kernel-8cd0ce.o:(.debug_ranges)
                0                0        0     1                 
                0                0        0     1                 $d.11
               30               30        0     1                 
@@ -2117,7 +2117,7 @@
              500              500        0     1                 
              530              530        0     1                 
              580              580        0     1                 
-             5b0              5b0       30     1         /tmp/common-78de65.o:(.debug_ranges)
+             5b0              5b0       30     1         /tmp/common-d8f3ba.o:(.debug_ranges)
              5b0              5b0        0     1                 
              5b0              5b0        0     1                 $d.5
                0                0      79b     1 .debug_str
@@ -2127,17 +2127,17 @@
                0                0       2b     1 .riscv.attributes
                0                0       2b     1         <internal>:(.riscv.attributes)
                0                0      490     8 .debug_frame
-               0                0      3e0     8         /tmp/kernel-5f2fe3.o:(.debug_frame)
+               0                0      3e0     8         /tmp/kernel-8cd0ce.o:(.debug_frame)
                0                0        0     1                 
                0                0        0     1                 $d.15
-             3e0              3e0       b0     8         /tmp/common-78de65.o:(.debug_frame)
+             3e0              3e0       b0     8         /tmp/common-d8f3ba.o:(.debug_frame)
              3e0              3e0        0     1                 
              3e0              3e0        0     1                 $d.9
                0                0     2155     1 .debug_line
-               0                0     1d9a     1         /tmp/kernel-5f2fe3.o:(.debug_line)
+               0                0     1d9a     1         /tmp/kernel-8cd0ce.o:(.debug_line)
                0                0        0     1                 .Lline_table_start0
                0                0        0     1                 $d.16
-            1d9a             1d9a      3bb     1         /tmp/common-78de65.o:(.debug_line)
+            1d9a             1d9a      3bb     1         /tmp/common-d8f3ba.o:(.debug_line)
             1d9a             1d9a        0     1                 .Lline_table_start0
             1d9a             1d9a        0     1                 $d.10
                0                0     d3f8     8 .symtab

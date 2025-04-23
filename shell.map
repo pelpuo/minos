@@ -1,14 +1,14 @@
              VMA              LMA     Size Align Out     In      Symbol
                0                0  1000000     1 . = 0x1000000
          1000000          1000000      54e     2 .text
-         1000000          1000000       1a     2         /tmp/user-6ca2f7.o:(.text.start)
+         1000000          1000000       1a     2         /tmp/user-f9881e.o:(.text.start)
          1000000          1000000        0     1                 
          1000000          1000000        0     1                 
          1000000          1000000        0     1                 $x.1
          1000000          1000000        0     1                 
          1000000          1000000       1a     1                 start
          100001a          100001a        0     1                 
-         100001a          100001a      208     2         /tmp/shell-140e88.o:(.text)
+         100001a          100001a      208     2         /tmp/shell-f6ccb2.o:(.text)
          100001a          100001a        0     1                 
          100001a          100001a        0     1                 
          100001a          100001a        0     1                 $x.0
@@ -92,7 +92,7 @@
          1000222          1000222        0     1                 
          1000222          1000222        0     1                 
          1000222          1000222        0     1                 
-         1000222          1000222       ac     2         /tmp/user-6ca2f7.o:(.text)
+         1000222          1000222       ac     2         /tmp/user-f9881e.o:(.text)
          1000222          1000222        0     1                 
          1000222          1000222        0     1                 
          1000222          1000222        0     1                 $x.0
@@ -175,7 +175,7 @@
          10002ca          10002ca        0     1                 
          10002ca          10002ca        0     1                 
          10002ce          10002ce        0     1                 
-         10002ce          10002ce      280     2         /tmp/common-3ab389.o:(.text)
+         10002ce          10002ce      280     2         /tmp/common-ce172f.o:(.text)
          10002ce          10002ce        0     1                 
          10002ce          10002ce        0     1                 
          10002ce          10002ce        0     1                 $x.0
@@ -380,12 +380,12 @@
          1000550          1000550       c6     4 .rodata
          1000550          1000550       c6     1         <internal>:(.rodata.str1.1)
          1000618          1000618    20800     4 .data
-         1000618          1000618    20800     1         /tmp/shell-140e88.o:(.data)
+         1000618          1000618    20800     1         /tmp/shell-f6ccb2.o:(.data)
          1000618          1000618        0     1                 $d.1
          1000618          1000618    103d0     1                 myapp_bin
          10109e8          10109e8    10430     1                 mal_bin
          1020e18          1020e18        8     4 .sdata
-         1020e18          1020e18        8     4         /tmp/shell-140e88.o:(.sdata)
+         1020e18          1020e18        8     4         /tmp/shell-f6ccb2.o:(.sdata)
          1020e18          1020e18        0     1                 $d.2
          1020e18          1020e18        4     1                 myapp_bin_len
          1020e1c          1020e1c        4     1                 mal_bin_len
@@ -395,11 +395,11 @@
          1030e20          1030e20        0     1         __stack_top = .
          1030e20          1030e20        0     1         
                0                0      a77     1 .debug_loc
-               0                0       a9     1         /tmp/shell-140e88.o:(.debug_loc)
+               0                0       a9     1         /tmp/shell-f6ccb2.o:(.debug_loc)
                0                0        0     1                 
                0                0        0     1                 $d.4
               73               73        0     1                 
-              a9               a9      50f     1         /tmp/user-6ca2f7.o:(.debug_loc)
+              a9               a9      50f     1         /tmp/user-f9881e.o:(.debug_loc)
               a9               a9        0     1                 
               a9               a9        0     1                 $d.2
              102              102        0     1                 
@@ -423,7 +423,7 @@
              51f              51f        0     1                 
              552              552        0     1                 
              585              585        0     1                 
-             5b8              5b8      4bf     1         /tmp/common-3ab389.o:(.debug_loc)
+             5b8              5b8      4bf     1         /tmp/common-ce172f.o:(.debug_loc)
              5b8              5b8        0     1                 
              5b8              5b8        0     1                 $d.2
              614              614        0     1                 
@@ -442,18 +442,18 @@
              997              997        0     1                 
              a2c              a2c        0     1                 
                0                0      400     1 .debug_abbrev
-               0                0      140     1         /tmp/shell-140e88.o:(.debug_abbrev)
+               0                0      140     1         /tmp/shell-f6ccb2.o:(.debug_abbrev)
                0                0        0     1                 $d.5
-             140              140      18b     1         /tmp/user-6ca2f7.o:(.debug_abbrev)
+             140              140      18b     1         /tmp/user-f9881e.o:(.debug_abbrev)
              140              140        0     1                 $d.3
-             2cb              2cb      135     1         /tmp/common-3ab389.o:(.debug_abbrev)
+             2cb              2cb      135     1         /tmp/common-ce172f.o:(.debug_abbrev)
              2cb              2cb        0     1                 $d.3
                0                0     1024     1 .debug_info
-               0                0      501     1         /tmp/shell-140e88.o:(.debug_info)
+               0                0      501     1         /tmp/shell-f6ccb2.o:(.debug_info)
                0                0        0     1                 $d.6
-             501              501      791     1         /tmp/user-6ca2f7.o:(.debug_info)
+             501              501      791     1         /tmp/user-f9881e.o:(.debug_info)
              501              501        0     1                 $d.4
-             c92              c92      392     1         /tmp/common-3ab389.o:(.debug_info)
+             c92              c92      392     1         /tmp/common-ce172f.o:(.debug_info)
              c92              c92        0     1                 $d.4
                0                0      304     1 .debug_str
                0                0      304     1         <internal>:(.debug_str)
@@ -462,30 +462,30 @@
                0                0       2b     1 .riscv.attributes
                0                0       2b     1         <internal>:(.riscv.attributes)
                0                0      268     8 .debug_frame
-               0                0       50     8         /tmp/shell-140e88.o:(.debug_frame)
+               0                0       50     8         /tmp/shell-f6ccb2.o:(.debug_frame)
                0                0        0     1                 
                0                0        0     1                 $d.10
-              50               50      168     8         /tmp/user-6ca2f7.o:(.debug_frame)
+              50               50      168     8         /tmp/user-f9881e.o:(.debug_frame)
               50               50        0     1                 
               50               50        0     1                 $d.9
-             1b8              1b8       b0     8         /tmp/common-3ab389.o:(.debug_frame)
+             1b8              1b8       b0     8         /tmp/common-ce172f.o:(.debug_frame)
              1b8              1b8        0     1                 
              1b8              1b8        0     1                 $d.9
                0                0      6d2     1 .debug_line
-               0                0      1c7     1         /tmp/shell-140e88.o:(.debug_line)
+               0                0      1c7     1         /tmp/shell-f6ccb2.o:(.debug_line)
                0                0        0     1                 .Lline_table_start0
                0                0        0     1                 $d.11
-             1c7              1c7      150     1         /tmp/user-6ca2f7.o:(.debug_line)
+             1c7              1c7      150     1         /tmp/user-f9881e.o:(.debug_line)
              1c7              1c7        0     1                 .Lline_table_start0
              1c7              1c7        0     1                 $d.10
-             317              317      3bb     1         /tmp/common-3ab389.o:(.debug_line)
+             317              317      3bb     1         /tmp/common-ce172f.o:(.debug_line)
              317              317        0     1                 .Lline_table_start0
              317              317        0     1                 $d.10
                0                0       60     1 .debug_ranges
-               0                0       30     1         /tmp/user-6ca2f7.o:(.debug_ranges)
+               0                0       30     1         /tmp/user-f9881e.o:(.debug_ranges)
                0                0        0     1                 
                0                0        0     1                 $d.5
-              30               30       30     1         /tmp/common-3ab389.o:(.debug_ranges)
+              30               30       30     1         /tmp/common-ce172f.o:(.debug_ranges)
               30               30        0     1                 
               30               30        0     1                 $d.5
                0                0     3618     8 .symtab

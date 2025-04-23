@@ -936,15 +936,12 @@ void kernel_main(void) {
   //       | SIE_SEIE;   // external (UART, virtio, etc.)
   // WRITE_CSR(sie, _sie);
   uint64_t _sie = READ_CSR(sie);
-  // _sie |= SIE_STIE;   // only timer interrupts
-  _sie &= ~SIE_STIE;   // only timer interrupts
+  _sie |= SIE_STIE;   // only timer interrupts
+  // _sie &= ~SIE_STIE;   // only timer interrupts
 
   uint64_t _sst = READ_CSR(sstatus);
   _sst |= SSTATUS_SIE;  // global enable
   WRITE_CSR(sstatus, _sst);
-
-
-  // 3) Arm the first timer tick (~10 ms on QEMU virt’s 10 MHz CLINT)
   
   uint64_t now  = READ_CSR(time);
   uint64_t when = now + 10000000;
