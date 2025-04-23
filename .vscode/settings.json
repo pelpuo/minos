@@ -59,6 +59,7 @@
   "files.associations": {
     "*.html": "html",
     "stdint.h": "c",
-    "user.h": "c"
+    "user.h": "c",
+    "common.h": "c"
   }
 }

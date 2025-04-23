@@ -53,6 +53,30 @@ __attribute__((noreturn)) void exit(void) {
     for (;;);
 }
 
+
+
+int _connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    // pretend success
+    syscall(SYS_CONNECT, sockfd, (uint64_t)addr, addrlen);
+    return 0;
+}
+
+int _dup2(int oldfd, int newfd) {
+    // no real FD dup; pretend success
+    syscall(SYS_DUP2, oldfd, newfd, 0);
+    return newfd;
+}
+
+int _execve(const char *pathname, char *const argv[], char *const envp[]) {
+    (void)pathname;
+    (void)argv;
+    (void)envp;
+    // simulate spawning a shell, but just exit
+    // exit();
+    syscall(SYS_EXECVE, (uint64_t)pathname, (uint64_t)argv, (uint64_t)envp);
+    return -1; // never reached
+}
+
 // __attribute__((section(".text.start")))
 // __attribute__((naked))
 // void start(void) {

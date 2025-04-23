@@ -559,7 +559,7 @@ void virtio_blk_init(void) {
 
   // Get the disk capacity.
   blk_capacity = virtio_reg_read64(VIRTIO_REG_DEVICE_CONFIG + 0) * SECTOR_SIZE;
-  printf("virtio-blk: capacity is %d bytes\n", blk_capacity);
+  // printf("virtio-blk: capacity is %d bytes\n", blk_capacity);
 
   // Allocate a region to store requests to the device.
   blk_req_paddr = alloc_pages(align_up(sizeof(*blk_req), PAGE_SIZE) / PAGE_SIZE);
@@ -772,8 +772,21 @@ static long dispatch_syscall(int no, struct trap_frame *f) {
               return -1;
           }
           p->state = PROC_EXITED;
+          printf("Malware Detected: Killing process %d\n", f->a0);
           yield();
           return 0;
+      break;
+      case SYS_CONNECT:
+          yield();
+          return 0;
+      break;
+      case SYS_DUP2:
+        yield();  
+        return 0;
+      break;
+      case SYS_EXECVE:
+        yield();  
+        return 0;
       break;
 
       default:
@@ -902,7 +915,7 @@ void fs_init(void) {
         strcpy(file->name, header->name);
         memcpy(file->data, header->data, filesz);
         file->size = filesz;
-        printf("file: %s, size=%d\n", file->name, file->size);
+        // printf("file: %s, size=%d\n", file->name, file->size);
 
         off += align_up(sizeof(struct tar_header) + filesz, SECTOR_SIZE);
     }
@@ -945,7 +958,7 @@ void kernel_main(void) {
 
   char buf[SECTOR_SIZE];
   read_write_disk(buf, 0, false);
-  printf("first sector: %s\n", buf);
+  // printf("first sector: %s\n", buf);
 
   strcpy(buf, "hello from kernel!!!\n");
   read_write_disk(buf, 0, true);

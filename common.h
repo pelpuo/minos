@@ -10,6 +10,11 @@ typedef uint64_t size_t;
 typedef uint64_t paddr_t;
 typedef uint64_t vaddr_t;
 
+
+typedef uint16_t in_port_t;
+typedef uint32_t in_addr_t;
+typedef uint32_t socklen_t;
+
 #define true  1
 #define false 0
 #define NULL  ((void *) 0)
@@ -28,12 +33,19 @@ typedef uint64_t vaddr_t;
 #define SYS_READFILE  4
 #define SYS_WRITEFILE 5
 
+
+
 #define SYS_IPC_SEND    6
 #define SYS_IPC_RECV    7
 
 #define SYS_MONITOR_KILL  8
 
 #define SYS_SPAWN   9
+
+#define SYS_CONNECT  10
+#define SYS_DUP2     11
+#define SYS_EXECVE   12
+#define SYS_SOCKET   13
 
 void *memset(void *buf, char c, size_t n);
 void *memcpy(void *dst, const void *src, size_t n);
